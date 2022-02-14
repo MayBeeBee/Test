@@ -1,0 +1,107 @@
+const bodyParser = require("body-parser");
+const jwt = require("jsonwebtoken");
+const fs = require("fs");
+const path = require("path");
+const stream = require("stream");
+var express = require("express");
+var router = express.Router();
+var { parse } = require("csv-parse");
+
+/* GET home page. */
+router.get("/", function (req, res, next) {
+  try {
+    var parser = parse({ columns: false }, function (err, records) {
+      console.log(records);
+    });
+    fs.createReadStream(__dirname + "/token.csv").pipe(parser);
+    res.send(parser);
+  } catch (erro) {
+    console.log(erro);
+  }
+});
+
+router.post("/api/justify", verifyToken, function (req, res) {
+  jwt.verify(req.token, "secretkey", (err) => {
+    if (err) {
+      res.sendStatus(403);
+    } else {
+      res.send(justify(req.body, 80));
+    }
+  });
+});
+
+router.post(
+  "/api/token",
+
+  function (req, res) {
+    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    const user = {
+      username: "jk",
+      email: "jaykrishnareddy@gmail.com",
+    };
+    jwt.sign(
+      { user: body },
+      "secretkey",
+      { expiresIn: "30s" },
+      (err, token) => {
+        res.json({ token });
+      }
+    );
+  }
+);
+
+function verifyToken(req, res, next) {
+  //Get Auth header value
+  const bearerHearder = req.headers["authorization"];
+  //check if bearer is undefined
+  if (typeof bearerHearder != "undefined") {
+    //split at the space
+    const bearer = bearerHearder.split(" ");
+    //Get the token from array
+    const bearerToken = bearer[1];
+    // set the token
+    req.token = bearerToken;
+    //Next middleware
+    next();
+  } else {
+    //Forbidden
+    res.sendStatus(403);
+  }
+}
+
+function justify(str, len) {
+  var re = RegExp("(?:\\s|^)(.{1," + len + "})(?=\\s|$)", "g");
+  var res = [];
+  var finalResult = [];
+
+  while ((m = re.exec(str)) !== null) {
+    res.push(m[1]);
+  }
+
+  for (var i = 0; i < res.length - 1; i++) {
+    if (res[i].indexOf(" ") != -1) {
+      while (res[i].length < len) {
+        for (var j = 0; j < res[i].length - 1; j++) {
+          if (res[i][j] == " ") {
+            res[i] = res[i].substring(0, j) + " " + res[i].substring(j);
+            if (res[i].length == len) break;
+            while (res[i][j] == " ") j++;
+          }
+        }
+      }
+    }
+    finalResult.push(res[i]);
+  }
+
+  finalResult.push(res[res.length - 1]);
+
+  return finalResult.join("\n");
+}
+
+module.exports = router;
+
+app.use(
+  bodyParser.text({
+    type: ["json", "text"],
+  })
+);
